@@ -101,31 +101,45 @@ git clone https://github.com/TauricResearch/TradingAgents.git
 cd TradingAgents
 ```
 
-Create a virtual environment in any of your favorite environment managers:
+Install dependencies with [uv](https://docs.astral.sh/uv/):
 ```bash
-conda create -n tradingagents python=3.13
-conda activate tradingagents
+uv sync
 ```
 
-Install dependencies:
+<details>
+<summary>Alternative: using pip</summary>
+
 ```bash
+# Create a virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
+</details>
 
 ### Required APIs
 
-You will need the OpenAI API for all the agents, and [Alpha Vantage API](https://www.alphavantage.co/support/#api-key) for fundamental and news data (default configuration).
+You'll need an [Alpha Vantage API key](https://www.alphavantage.co/support/#api-key) for fundamental and news data, plus API keys for your chosen LLM provider.
 
-```bash
-export OPENAI_API_KEY=$YOUR_OPENAI_API_KEY
-export ALPHA_VANTAGE_API_KEY=$YOUR_ALPHA_VANTAGE_API_KEY
-```
-
-Alternatively, you can create a `.env` file in the project root with your API keys (see `.env.example` for reference):
+Create a `.env` file in the project root (see `.env.example`):
 ```bash
 cp .env.example .env
 # Edit .env with your actual API keys
 ```
+
+#### API Keys by Provider
+
+| LLM Provider | Required Keys | Notes |
+|--------------|---------------|-------|
+| **OpenAI** | `OPENAI_API_KEY`, `ALPHA_VANTAGE_API_KEY` | Uses OpenAI for both LLM and embeddings |
+| **Google Gemini** | `GOOGLE_API_KEY`, `ALPHA_VANTAGE_API_KEY` | Uses native Gemini embeddings |
+| **Anthropic** | `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `ALPHA_VANTAGE_API_KEY` | [VoyageAI](https://www.voyageai.com/) is recommended for embeddings |
+| **Anthropic (alt)** | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `ALPHA_VANTAGE_API_KEY` | Falls back to OpenAI embeddings if no `VOYAGE_API_KEY` |
+| **Ollama** | `ALPHA_VANTAGE_API_KEY` | Local LLM and embeddings, no API keys needed |
+
+> **Why embeddings?** TradingAgents uses embeddings for a memory system that helps agents learn from past decisions. Anthropic doesn't offer an embeddings API, so we use [VoyageAI](https://www.voyageai.com/) (recommended by Anthropic) or fall back to OpenAI.
 
 **Note:** We are happy to partner with Alpha Vantage to provide robust API support for TradingAgents. You can get a free AlphaVantage API [here](https://www.alphavantage.co/support/#api-key), TradingAgents-sourced requests also have increased rate limits to 60 requests per minute with no daily limits. Typically the quota is sufficient for performing complex tasks with TradingAgents thanks to Alpha Vantage’s open-source support program. If you prefer to use OpenAI for these data sources instead, you can modify the data vendor settings in `tradingagents/default_config.py`.
 
@@ -133,7 +147,7 @@ cp .env.example .env
 
 You can also try out the CLI directly by running:
 ```bash
-python -m cli.main
+uv run python -m cli.main
 ```
 You will see a screen where you can select your desired tickers, date, LLMs, research depth, etc.
 
@@ -159,7 +173,7 @@ We built TradingAgents with LangGraph to ensure flexibility and modularity. We u
 
 ### Python Usage
 
-To use TradingAgents inside your code, you can import the `tradingagents` module and initialize a `TradingAgentsGraph()` object. The `.propagate()` function will return a decision. You can run `main.py`, here's also a quick example:
+To use TradingAgents inside your code, you can import the `tradingagents` module and initialize a `TradingAgentsGraph()` object. The `.propagate()` function will return a decision. You can run `uv run python main.py`, here's also a quick example:
 
 ```python
 from tradingagents.graph.trading_graph import TradingAgentsGraph

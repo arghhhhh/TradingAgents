@@ -1,7 +1,15 @@
+import os
 import chromadb
 from chromadb.config import Settings
 from openai import OpenAI
 import google.generativeai as genai
+
+# VoyageAI is imported conditionally when needed
+try:
+    import voyageai
+    VOYAGEAI_AVAILABLE = True
+except ImportError:
+    VOYAGEAI_AVAILABLE = False
 
 
 class FinancialSituationMemory:
@@ -19,9 +27,15 @@ class FinancialSituationMemory:
             self.embedding_provider = "google"
             self.embedding_model = "gemini-embedding-001"
             # genai uses GOOGLE_API_KEY env var automatically
+        elif self.llm_provider == "anthropic" and VOYAGEAI_AVAILABLE and os.environ.get("VOYAGE_API_KEY"):
+            # Use VoyageAI embeddings when using Anthropic/Claude models
+            # Recommended by Anthropic: https://platform.claude.com/docs/en/build-with-claude/embeddings
+            self.embedding_provider = "voyageai"
+            self.embedding_model = "voyage-3.5"  # Best general-purpose model
+            self.voyageai_client = voyageai.Client()  # Uses VOYAGE_API_KEY env var
         else:
-            # Use OpenAI for embeddings (OpenAI, Anthropic, OpenRouter)
-            # Anthropic doesn't have an embeddings API, so we fall back to OpenAI
+            # Use OpenAI for embeddings (OpenAI, OpenRouter, or Anthropic without VoyageAI)
+            # Anthropic doesn't have its own embeddings API
             self.embedding_provider = "openai"
             self.embedding_model = "text-embedding-3-small"
             self.openai_client = OpenAI()  # Uses OPENAI_API_KEY env var
@@ -40,6 +54,14 @@ class FinancialSituationMemory:
                 task_type="SEMANTIC_SIMILARITY"
             )
             return result['embedding']
+        elif self.embedding_provider == "voyageai":
+            # Use VoyageAI embeddings (recommended for Anthropic/Claude)
+            result = self.voyageai_client.embed(
+                [text],
+                model=self.embedding_model,
+                input_type="document"
+            )
+            return result.embeddings[0]
         else:
             # Use OpenAI-compatible API (OpenAI or Ollama)
             response = self.openai_client.embeddings.create(
