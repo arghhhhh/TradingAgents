@@ -6,10 +6,13 @@ from openai import OpenAI
 class FinancialSituationMemory:
     def __init__(self, name, config):
         if config["backend_url"] == "http://localhost:11434/v1":
+            # Use local Ollama for embeddings
             self.embedding = "nomic-embed-text"
+            self.client = OpenAI(base_url=config["backend_url"])
         else:
+            # Always use OpenAI for embeddings (text-embedding-3-small is OpenAI-only)
             self.embedding = "text-embedding-3-small"
-        self.client = OpenAI(base_url=config["backend_url"])
+            self.client = OpenAI()  # Uses OPENAI_API_KEY env var and default OpenAI URL
         self.chroma_client = chromadb.Client(Settings(allow_reset=True))
         self.situation_collection = self.chroma_client.create_collection(name=name)
 
