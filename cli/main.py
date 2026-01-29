@@ -12,8 +12,27 @@ from rich.panel import Panel
 from rich.spinner import Spinner
 from rich.live import Live
 from rich.columns import Columns
-from rich.markdown import Markdown
+from rich.markdown import Markdown as RichMarkdown
 from rich.layout import Layout
+
+
+def SafeMarkdown(content):
+    """Create a Markdown object, handling list content (Gemini/Anthropic format)."""
+    if isinstance(content, list):
+        text_parts = []
+        for item in content:
+            if isinstance(item, dict) and item.get('type') == 'text':
+                text_parts.append(item.get('text', ''))
+            elif isinstance(item, str):
+                text_parts.append(item)
+        content = ' '.join(text_parts)
+    elif content is None:
+        content = ""
+    return RichMarkdown(str(content))
+
+
+# Alias for backwards compatibility
+Markdown = SafeMarkdown
 from rich.text import Text
 from rich.live import Live
 from rich.table import Table
@@ -90,6 +109,15 @@ class MessageBuffer:
 
     def update_report_section(self, section_name, content):
         if section_name in self.report_sections:
+            # Convert list content (Gemini/Anthropic format) to string
+            if isinstance(content, list):
+                text_parts = []
+                for item in content:
+                    if isinstance(item, dict) and item.get('type') == 'text':
+                        text_parts.append(item.get('text', ''))
+                    elif isinstance(item, str):
+                        text_parts.append(item)
+                content = ' '.join(text_parts)
             self.report_sections[section_name] = content
             self._update_current_report()
 
@@ -768,7 +796,7 @@ def run_analysis():
             func(*args, **kwargs)
             timestamp, message_type, content = obj.messages[-1]
             content = content.replace("\n", " ")  # Replace newlines with spaces
-            with open(log_file, "a") as f:
+            with open(log_file, "a", encoding="utf-8") as f:
                 f.write(f"{timestamp} [{message_type}] {content}\n")
         return wrapper
     
@@ -779,7 +807,7 @@ def run_analysis():
             func(*args, **kwargs)
             timestamp, tool_name, args = obj.tool_calls[-1]
             args_str = ", ".join(f"{k}={v}" for k, v in args.items())
-            with open(log_file, "a") as f:
+            with open(log_file, "a", encoding="utf-8") as f:
                 f.write(f"{timestamp} [Tool Call] {tool_name}({args_str})\n")
         return wrapper
 
@@ -791,9 +819,11 @@ def run_analysis():
             if section_name in obj.report_sections and obj.report_sections[section_name] is not None:
                 content = obj.report_sections[section_name]
                 if content:
+                    # Extract string content if it's in list format (Gemini/Anthropic)
+                    content_str = extract_content_string(content)
                     file_name = f"{section_name}.md"
-                    with open(report_dir / file_name, "w") as f:
-                        f.write(content)
+                    with open(report_dir / file_name, "w", encoding="utf-8") as f:
+                        f.write(content_str)
         return wrapper
 
     message_buffer.add_message = save_message_decorator(message_buffer, "add_message")
